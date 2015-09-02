@@ -2,8 +2,8 @@
  *  parameters.h
  *  
  *
- *  Created by Zalastra on 8/24/15.
- *  Copyright 2015 Portland State University. All rights reserved.
+ *  Created by Alec Rasmussen on 8/24/15.
+ *  
  *
  */
 #include <complex>
