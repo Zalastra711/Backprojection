@@ -29,6 +29,60 @@
 //using namespace std;
 //using namespace fftw;
 
+void swap(complex<double> *var1, complex<double> *var2)
+{
+	complex<double> tmp = *var1;
+	*var1 = *var2;
+	*var2 = tmp;
+}
+
+void fftshift(complex<double> *argin, int count)
+{
+	int k = 0;
+	int c = (int) floor((float)count/2);
+	
+	if (count % 2 == 0) //define case for even length vector
+	{
+		for (k=0; k < c; k++)
+		{	
+			swap(&argin[k], &argin[k+c]);
+		}
+	}
+	else
+	{
+		complex<double> tmp = argin[0];
+		for (k=0; k<c;k++)
+		{
+			argin[k] = argin[c+k+1];
+			argin[c+k+1] = argin[k+1];
+		}
+		argin[c]=tmp;
+	}
+}
+
+void ifftshift(complex<double> *argin, int count)
+{
+	int k = 0;
+	int c = (int)floor((float)count/2);
+	if (count % 2 == 0)
+	{
+		for (k=0; k<c;k++)
+		{
+			swap(&argin[k], &argin[k+c]);
+		}
+	}
+	else
+	{
+		complex<double> tmp = argin[count-1];
+		for (k=c-1; k>=0; k--)
+		{
+			argin[c+k+1] = argin[k];
+			argin[k] = argin[c+k];
+		}
+		argin[c] = tmp;
+	}
+}
+
 void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	
 	std::vector<phdata> filteredData;
@@ -111,7 +165,8 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		// Recast the vector to the type needed for FFTW and compute FFT
 		in = reinterpret_cast<fftw_complex*>(&filteredData);
 		void fftw_execute(const fftw_plan plan);
-		std::cout << out << std::endl;
+		//std::cout << out << std::endl;
+		
 		// Interpolation step next...
 	}
 	
