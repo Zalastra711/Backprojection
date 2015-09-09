@@ -91,8 +91,8 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	fftw_plan plan;
 	double deltaFreq, diffFreq, sampleRange;
 	
-	in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
-	out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
+	in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
+	out = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
 	plan = fftw_plan_dft_1d(image.Nfft, in, out, FFTW_BACKWARD, FFTW_MEASURE);
 	
 	double x,y,z;
@@ -180,8 +180,8 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	}
 	
 	fftw_destroy_plan(plan);
-	//fftw_free(in);
-	//fftw_free(out);
+	fftw_free(in);
+	fftw_free(out);
 }
 
 int main()
