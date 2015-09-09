@@ -144,7 +144,7 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		     + sin(rx.az[i]*M_PI/180)*cos(rx.grazing*M_PI/180) )/2;
 		z = (sin(tx.grazing*M_PI/180) + sin(rx.grazing*M_PI/180) )/2;
 		// Need to figure out how to handle the Bistatic look angle
-		for ( unsigned int n=0; i< tx.freq.size(); i++ )
+		for ( unsigned int n=0; n< tx.freq.size(); n++ )
 		{
 			fx.push_back(tx.freq[n] * x);
 			fy.push_back(tx.freq[n] * y);
@@ -162,12 +162,21 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		filteredData.insert( filteredData.begin(), zeroPad.begin(), zeroPad.end()); 
 		filteredData.insert( filteredData.end(), zeroPad.begin(), zeroPad.end());
 		
+		// Shift the data to put the center frequency at DC position (zero index)
+		ifftshift(filteredData, filteredData.size());
+		
 		// Recast the vector to the type needed for FFTW and compute FFT
 		in = reinterpret_cast<fftw_complex*>(&filteredData);
 		void fftw_execute(const fftw_plan plan);
+		
+		// Shift the output to put zero range at middle of range profile
+		fftshift(out, out.size());
 		//std::cout << out << std::endl;
 		
+		// Calculate differential range for each pixel in the image
+		
 		// Interpolation step next...
+		
 	}
 	
 	fftw_destroy_plan(plan);
@@ -215,15 +224,6 @@ int main()
 	//imgdata << "'Index', 'Time', 'Frequency', 'Pulse'" << endl;
 	//}
 	//else cout << "Unable to open file";
-
-	// Define the phase history data file to be read
-	// This is a matlab file in this case, and so requires the inclusion
-	// of the matlab mat.h header
-	//ifstream phdata ("Sentra_el30.0000.mat",ios::ate | ios::in);
-	//if (phdata.isopen())
-	//{
-		
-	
 
 	return 0;
 }
