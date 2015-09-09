@@ -92,10 +92,10 @@ public:
 	std::vector<double> z;
 	std::vector<double> r_vec;
 	std::vector<phdata> rangeprofile;
-	double x_mat[128][128];
-	double y_mat[128][128];
-	double z_mat[128][128];
-	std::vector<std::vector<phdata> > img_final;
+	//double x_mat[128][128];
+	//double y_mat[128][128];
+	//double z_mat[128][128];
+	phdata img_final[128][128] {};
 	
 	imgdata();
 };
@@ -110,7 +110,22 @@ imgdata::imgdata(){
 	Nfft = pow(2,14);
 	Nx = 128;
 	Ny = 128;
-	Nz = 128;
+	Nz = 1;
+	for (int i = 0; i<Nx; i++)
+	{
+		x.pushback(-x_extent/2+i*((x_extent/Nx))
+	}
+	for (int i = 0; i<Ny; i++)
+	{
+		y.pushback(-y_extent/2+i*((y_extent/Ny))
+	}
+	if (z_extent)
+	{
+		for (int i = 0; i<Nz; i++)
+		{
+			z.pushback(-z_extent/2+i*((z_extent/Nz))
+		}
+	}
 }
 #endif
 
