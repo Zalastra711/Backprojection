@@ -217,13 +217,21 @@ int main()
 		
 	// Define the file to write the image data to
 	// Note that the file will be overwritten through this function
-	//ofstream imgdata ("stuff1.csv", ios::trunc | ios::out);
-	//if (imgdata.isopen())
-	//{
+	ofstream imgfile ("image.csv", ios::trunc | ios::out);
+	if (imgfile.isopen())
+	{
 	// Write a header to the columns of the csv
-	//imgdata << "'Index', 'Time', 'Frequency', 'Pulse'" << endl;
-	//}
-	//else cout << "Unable to open file";
+	// imgdata << "'Index', 'Time', 'Frequency', 'Pulse'" << endl;
+		for (int i = 0; i < image.Nx; i++)
+		{
+			for (int j = 0; j < image.Ny; j++)
+			{
+				imgfile << image.img_final[0+i][0+j] << ",";
+			}
+			imgfile << endl;
+		}
+	}
+	else cout << "Unable to open file";
 
 	return 0;
 }
