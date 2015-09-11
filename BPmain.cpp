@@ -10,6 +10,7 @@
 // #include <stdio.h>
 #include <fstream>
 #include <string>
+#include <cstring>
 #include <cmath>
 #include <complex>
 #include <fftw3.h>
@@ -29,15 +30,13 @@
 //using namespace std;
 //using namespace fftw;
 
-void swap(complex<double> *var1, complex<double> *var2)
-{
-	complex<double> tmp = *var1;
+void swap(std::vector<phdata> *var1, std::vector<phdata> *var2){
+	std::vector<phdata> tmp = *var1;
 	*var1 = *var2;
 	*var2 = tmp;
-}
+};
 
-void fftshift(complex<double> *argin, int count)
-{
+void fftshift(std::vector<phdata> *argin, std::size_t count){
 	int k = 0;
 	int c = (int) floor((float)count/2);
 	
@@ -50,7 +49,7 @@ void fftshift(complex<double> *argin, int count)
 	}
 	else
 	{
-		complex<double> tmp = argin[0];
+		std::vector<phdata> tmp = argin[0];
 		for (k=0; k<c;k++)
 		{
 			argin[k] = argin[c+k+1];
@@ -58,42 +57,53 @@ void fftshift(complex<double> *argin, int count)
 		}
 		argin[c]=tmp;
 	}
-}
+};
 
-void ifftshift(complex<double> *argin, int count)
-{
+void ifftshift(std::vector<phdata> *argin, std::size_t count){
 	int k = 0;
 	int c = (int)floor((float)count/2);
+	
+	std::cout << c << std::endl;
+	
 	if (count % 2 == 0)
 	{
+		std::cout << "IFFT Case Even." << std::endl;
 		for (k=0; k<c;k++)
 		{
+			std::cout << "Swapping " << k << " Index." << std::endl;
 			swap(&argin[k], &argin[k+c]);
 		}
 	}
 	else
 	{
-		complex<double> tmp = argin[count-1];
+		std::cout << "IFFT Case Odd." << std::endl;
+		std::vector<phdata> tmp = argin[count-1];
 		for (k=c-1; k>=0; k--)
 		{
+			std::cout << "Swapping " << k << " Index." << std::endl;
 			argin[c+k+1] = argin[k];
 			argin[k] = argin[c+k];
 		}
 		argin[c] = tmp;
 	}
-}
+};
 
 void backproject(rxdata& rx, rxdata& tx, imgdata& image){
+	
+	std::cout << "Running BackProjection" << std::endl;
 	
 	std::vector<phdata> filteredData;
 	
 	fftw_complex *in, *out;
 	fftw_plan plan;
+	
 	double deltaFreq, diffFreq, sampleRange;
 	
 	in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
 	out = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
 	plan = fftw_plan_dft_1d(image.Nfft, in, out, FFTW_BACKWARD, FFTW_MEASURE);
+	
+	std::cout << "FFTW Plan Created" << std::endl;
 	
 	double x,y,z;
 	std::vector<double> fx,fy,fz,radonFilter;
@@ -118,12 +128,16 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		image.r_vec.push_back((((-image.Nfft+(image.Nfft%2))/2)+i)/sampleRange);
 	};
 	
+	std::cout << "Image Range Vector Created" << std::endl;
+	
 	// Define the inverse Radon Transform frequency ramp filter
 	for ( unsigned int i=0; i< tx.freq.size(); i++ )
 	{
 		radonFilter.push_back(fabs(tx.freq[i])); 
 		// Assumes the frequencies are the same for every pulse
 	};
+	
+	std::cout << "Radon Filter Created" << std::endl;
 	
 	// Determine size of desired zero-padding
 	int L = image.Nfft - rx.freqbins;
@@ -136,7 +150,7 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	double ampScaleFactor = image.Nfft/rx.freqbins/fcenter;
 	
 	// iterate through pulses to backproject across the aperture
-	for ( int i=0; i<pulses; i++ )
+	for ( int i=0; i<=pulses; i++ )
 	{
 		x = (cos(tx.az[i]*M_PI/180)*cos(tx.grazing*M_PI/180) 
 		     + cos(rx.az[i]*M_PI/180)*cos(rx.grazing*M_PI/180) )/2;
@@ -162,16 +176,30 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		filteredData.insert( filteredData.begin(), zeroPad.begin(), zeroPad.end()); 
 		filteredData.insert( filteredData.end(), zeroPad.begin(), zeroPad.end());
 		
+		std::cout << "Pulse " << i << " Data Zero Padded." << std::endl;
+		
+		//std::vector<phdata> * filteredDataPtr = &filteredData;
 		// Shift the data to put the center frequency at DC position (zero index)
-		ifftshift(filteredData, filteredData.size());
+		// ifftshift(filteredDataPtr, filteredData.size());
+		
+		// Encounters Memory Overload in IFFT Shift - Swap call 3...
+		
+		//std::cout << "Pulse " << i << " IFFT Shift Complete." << std::endl;
 		
 		// Recast the vector to the type needed for FFTW and compute FFT
 		in = reinterpret_cast<fftw_complex*>(&filteredData);
 		void fftw_execute(const fftw_plan plan);
 		
+		//std::cout << "Pulse " << i << " FFT Executed" << std::endl;
+		//std::vector<phdata> outData;
+		
+		// std::memcpy(&outData, &out, filteredData.size() );
+		
+		// std::vector<phdata> * outDataPtr = &outData;
+		
 		// Shift the output to put zero range at middle of range profile
-		fftshift(out, out.size());
-		//std::cout << out << std::endl;
+		// fftshift(outDataPtr, outData.size());
+		std::cout << out << std::endl;
 		
 		// Calculate differential range for each pixel in the image
 		
@@ -180,9 +208,9 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	}
 	
 	fftw_destroy_plan(plan);
-	fftw_free(in);
-	fftw_free(out);
-}
+	//fftw_free(in);
+	//fftw_free(out);
+};
 
 int main()
 {
@@ -217,8 +245,8 @@ int main()
 		
 	// Define the file to write the image data to
 	// Note that the file will be overwritten through this function
-	ofstream imgfile ("image.csv", ios::trunc | ios::out);
-	if (imgfile.isopen())
+	std::ofstream imgfile ("image.csv", std::ios::trunc | std::ios::out);
+	if (imgfile.is_open())
 	{
 	// Write a header to the columns of the csv
 	// imgdata << "'Index', 'Time', 'Frequency', 'Pulse'" << endl;
@@ -226,13 +254,13 @@ int main()
 		{
 			for (int j = 0; j < image.Ny; j++)
 			{
-				imgfile << image.img_final[0+i][0+j] << ",";
+				imgfile << image.img_final[0+i][0+j] << ";";
 			}
-			imgfile << endl;
+			imgfile << std::endl;
 		}
 	}
-	else cout << "Unable to open file";
+	else std::cout << "Unable to open file";
 
 	return 0;
-}
+};
 
