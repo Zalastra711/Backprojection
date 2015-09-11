@@ -95,7 +95,7 @@ public:
 	//double x_mat[128][128];
 	//double y_mat[128][128];
 	//double z_mat[128][128];
-	phdata img_final[128][128] {};
+	phdata img_final[128][128];
 	
 	imgdata();
 };
@@ -113,17 +113,17 @@ imgdata::imgdata(){
 	Nz = 1;
 	for (int i = 0; i<Nx; i++)
 	{
-		x.pushback(-x_extent/2+i*((x_extent/Nx))
+		x.push_back(-x_extent/2+i*((x_extent/Nx)));
 	}
 	for (int i = 0; i<Ny; i++)
 	{
-		y.pushback(-y_extent/2+i*((y_extent/Ny))
+		y.push_back(-y_extent/2+i*((y_extent/Ny)));
 	}
 	if (z_extent)
 	{
 		for (int i = 0; i<Nz; i++)
 		{
-			z.pushback(-z_extent/2+i*((z_extent/Nz))
+			z.push_back(-z_extent/2+i*((z_extent/Nz)));
 		}
 	}
 }
@@ -137,5 +137,30 @@ imgdata::imgdata(){
 #include <fftw3.h>
 
 void backproject(rxdata& rx, rxdata& tx, imgdata& image);//{/*...*/};
+
+#endif
+
+#ifndef SWAP
+#define SWAP
+
+void swap(std::complex<double> *var1, std::complex<double> *var2);//{/*...*/};
+
+#endif
+
+#ifndef FFTSHIFT
+#define FFTSHIFT
+
+#include <cmath>
+
+void fftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
+
+#endif
+
+#ifndef IFFTSHIFT
+#define IFFTSHIFT
+
+#include <cmath>
+
+void ifftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 
 #endif
