@@ -14,6 +14,16 @@
 typedef std::complex<double> phdata;
 #endif
 
+#ifndef DCOMPLEX_H_
+#define DCOMPLEX_H_
+const phdata I = (0.0,1.0); // sqrt(-1)
+#endif
+
+#ifndef TWOPI
+#define TWOPI
+const double twoPI = 2*M_PI;
+#endif
+
 #ifndef SOL
 #define SOL
 const double c = 299792458; // Speed of light in vacuum
@@ -58,12 +68,12 @@ public:
 };
 
 rxdata::rxdata(){
-	minaz = -15;
-	maxaz = 15;
-	azstep = 0.01;
+	minaz = -5*M_PI/180;
+	maxaz = 5*M_PI/180;
+	azstep = 1*M_PI/180;
 	freqmin = 9 * pow(10,9);
 	freqmax = 11 * pow(10,9);
-	freqbins = 512;
+	freqbins = 64;
 	grazing = 30;
 	range = 100;
 	rxphase.assign(freqbins, std::vector<phdata> (3001, {1,0}) );
@@ -95,7 +105,7 @@ public:
 	//double x_mat[128][128];
 	//double y_mat[128][128];
 	//double z_mat[128][128];
-	phdata img_final[128][128];
+	phdata img_final[128][128][1];
 	
 	imgdata();
 };
@@ -106,8 +116,8 @@ imgdata::imgdata(){
 	z0 = 0;
 	x_extent = 10;
 	y_extent = 10;
-	z_extent = 0;
-	Nfft = pow(2,14);
+	z_extent = 1;
+	Nfft = pow(2,8);
 	Nx = 128;
 	Ny = 128;
 	Nz = 1;
@@ -162,5 +172,13 @@ void fftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 #include <cmath>
 
 void ifftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
+
+#endif
+
+#ifndef DIFF_RANGE
+#define DIFF_RANGE
+
+double dR(double txazim, double txgraz, double rxazim, double rxgraz,
+	  double x, double y, double z); //{/*...*/};
 
 #endif
