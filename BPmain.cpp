@@ -15,6 +15,7 @@
 #include <complex>
 #include <fftw3.h>
 #include <numeric>
+#include <algorithm>
 #include "parameters.h"
 
 // Compile with:
@@ -30,13 +31,17 @@
 //using namespace std;
 //using namespace fftw;
 
+/*
 void swap(std::vector<phdata> *var1, std::vector<phdata> *var2){
 	std::vector<phdata> tmp = *var1;
 	*var1 = *var2;
+	std::cout << &var1 << ", " << &var2 << ", " << &tmp << std::endl;
 	*var2 = tmp;
 };
+*/
 
-void fftshift(std::vector<phdata> *argin, std::size_t count){
+// Create FFTSHIFT and IFFTSHIFT functions
+void fftshift(std::vector<phdata> &argin, std::size_t count){
 	int k = 0;
 	int c = (int) floor((float)count/2);
 	
@@ -44,12 +49,15 @@ void fftshift(std::vector<phdata> *argin, std::size_t count){
 	{
 		for (k=0; k < c; k++)
 		{	
-			swap(&argin[k], &argin[k+c]);
+			phdata tmp = argin[k];
+			argin[k] = argin[k+c];
+			argin[k+c] = tmp;
+			// swap(&argin[k], &argin[k+c]);
 		}
 	}
 	else
 	{
-		std::vector<phdata> tmp = argin[0];
+		phdata tmp = argin[0];
 		for (k=0; k<c;k++)
 		{
 			argin[k] = argin[c+k+1];
@@ -59,33 +67,55 @@ void fftshift(std::vector<phdata> *argin, std::size_t count){
 	}
 };
 
-void ifftshift(std::vector<phdata> *argin, std::size_t count){
+void ifftshift(std::vector<phdata> &argin, std::size_t count){
 	int k = 0;
 	int c = (int)floor((float)count/2);
 	
-	std::cout << c << std::endl;
+	//std::cout << c << std::endl;
+	//std::cout << argin[0] << std::endl;
+	//std::cout << argin->k << std::endl;
 	
 	if (count % 2 == 0)
 	{
 		std::cout << "IFFT Case Even." << std::endl;
 		for (k=0; k<c;k++)
 		{
-			std::cout << "Swapping " << k << " Index." << std::endl;
-			swap(&argin[k], &argin[k+c]);
+			//std::cout << &argin << std::endl;
+			//std::cout << "Swapping " << k << " Index." << std::endl;
+			//std::cout << argin[k] << std::endl;
+			//std::cout << argin[k+c] << std::endl;
+			
+			phdata tmp = argin[k];
+			//std::cout << tmp << std::endl;
+			
+			argin[k] = argin[k+c];
+			argin[k+c] = tmp;
+			//swap(&argin[k], &argin[k+c]);
 		}
 	}
 	else
 	{
 		std::cout << "IFFT Case Odd." << std::endl;
-		std::vector<phdata> tmp = argin[count-1];
+		phdata tmp = argin[count-1];
 		for (k=c-1; k>=0; k--)
 		{
-			std::cout << "Swapping " << k << " Index." << std::endl;
+			//std::cout << "Swapping " << k << " Index." << std::endl;
 			argin[c+k+1] = argin[k];
 			argin[k] = argin[c+k];
 		}
 		argin[c] = tmp;
 	}
+};
+
+double dR(double txazim, double txgraz, double rxazim, double rxgraz,
+	  double x, double y, double z){
+	
+	//std::cout << "Calling dR Function" << std::endl;
+	
+	return x*(cos(txgraz)*cos(txazim)+cos(rxgraz)*cos(rxazim)) + 
+	y*(cos(txgraz)*sin(txazim)+cos(rxgraz)*sin(rxazim)) + 
+	z*(sin(txgraz)+sin(rxgraz));
+	
 };
 
 void backproject(rxdata& rx, rxdata& tx, imgdata& image){
@@ -98,9 +128,13 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	fftw_plan plan;
 	
 	double deltaFreq, diffFreq, sampleRange;
+	phdata phaseCorr, interp;
 	
-	in = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
-	out = (fftw_complex *) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
+	// these must match Nx, Ny, Nz...or find a better way to define this part...
+	constexpr size_t xdim = 128, ydim=128, zdim = 1;
+	
+	in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
+	out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * image.Nfft );
 	plan = fftw_plan_dft_1d(image.Nfft, in, out, FFTW_BACKWARD, FFTW_MEASURE);
 	
 	std::cout << "FFTW Plan Created" << std::endl;
@@ -125,8 +159,12 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	// Define the range at each sample
 	for ( int i = 0; i < image.Nfft; i++ )
 	{
-		image.r_vec.push_back((((-image.Nfft+(image.Nfft%2))/2)+i)/sampleRange);
+		image.r_vec.push_back((((-image.Nfft+(image.Nfft%2))/2)+i)*sampleRange);
 	};
+	
+	// variables for min and max value of range vector for use in later comparison
+	double rvecMin = *std::min_element(image.r_vec.begin(), image.r_vec.end());
+	double rvecMax = *std::max_element(image.r_vec.begin(), image.r_vec.end());
 	
 	std::cout << "Image Range Vector Created" << std::endl;
 	
@@ -145,6 +183,7 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	int zeros = (L+L%2)/2;
 	std::vector<phdata> zeroPad(zeros);
 	//vector<phdata>::iterator it;
+	std::vector<phdata> outData;
 	
 	// Determine the Amplitude scaling factor based on zero padding
 	double ampScaleFactor = image.Nfft/rx.freqbins/fcenter;
@@ -152,23 +191,38 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 	// iterate through pulses to backproject across the aperture
 	for ( int i=0; i<=pulses; i++ )
 	{
+		// Reset vectors for each pulse
+		fx.clear();
+		fy.clear();
+		fz.clear();
+		filteredData.clear();
+		outData.clear();
+		
+		// Define Bistatic collection manifold/geometry
+		/*
 		x = (cos(tx.az[i]*M_PI/180)*cos(tx.grazing*M_PI/180) 
 		     + cos(rx.az[i]*M_PI/180)*cos(rx.grazing*M_PI/180) )/2;
 		y = (sin(tx.az[i]*M_PI/180)*cos(tx.grazing*M_PI/180) 
 		     + sin(rx.az[i]*M_PI/180)*cos(rx.grazing*M_PI/180) )/2;
 		z = (sin(tx.grazing*M_PI/180) + sin(rx.grazing*M_PI/180) )/2;
+		*/
+		x = (cos(tx.az[i])*cos(tx.grazing) 
+		     + cos(rx.az[i])*cos(rx.grazing) )/2;
+		y = (sin(tx.az[i])*cos(tx.grazing) 
+		     + sin(rx.az[i])*cos(rx.grazing) )/2;
+		z = (sin(tx.grazing) + sin(rx.grazing) )/2;
 		// Need to figure out how to handle the Bistatic look angle
-		for ( unsigned int n=0; n< tx.freq.size(); n++ )
+		for ( unsigned int jj=0; jj< tx.freq.size(); jj++ )
 		{
-			fx.push_back(tx.freq[n] * x);
-			fy.push_back(tx.freq[n] * y);
-			fz.push_back(tx.freq[n] * z);
+			fx.push_back(tx.freq[jj] * x);
+			fy.push_back(tx.freq[jj] * y);
+			fz.push_back(tx.freq[jj] * z);
 			//elBiLook.pushback(atan(fz(j),sqrt(fx(j)^2,fy(j)^2)));
 		}
 		
-		for ( int m=0; m<radonFilter.size(); m++ )
+		for ( int ii=0; ii<radonFilter.size(); ii++ )
 		{
-			filteredData.push_back(radonFilter[m]*rx.rxphase[m][i]);
+			filteredData.push_back(radonFilter[ii]*rx.rxphase[ii][i]);
 		}
 		
 		//zero pad the data for the FFT
@@ -178,35 +232,106 @@ void backproject(rxdata& rx, rxdata& tx, imgdata& image){
 		
 		std::cout << "Pulse " << i << " Data Zero Padded." << std::endl;
 		
-		//std::vector<phdata> * filteredDataPtr = &filteredData;
+		/*
+		for (int ii=0; ii<filteredData.size(); ii++)
+		{
+			std::cout << filteredData[ii] ;
+		}
+		std::cout << std::endl;
+		*/
+		
+		//std::cout << &filteredData << std::endl;
+		//std::cout << &filteredData.front() << std::endl;
+		
 		// Shift the data to put the center frequency at DC position (zero index)
-		// ifftshift(filteredDataPtr, filteredData.size());
+		ifftshift(filteredData, filteredData.size());
 		
-		// Encounters Memory Overload in IFFT Shift - Swap call 3...
+		std::cout << "Pulse " << i << " IFFT Shift Complete." << std::endl;
 		
-		//std::cout << "Pulse " << i << " IFFT Shift Complete." << std::endl;
+		/*
+		for (int ii=0; ii<filteredData.size(); ii++)
+		{
+			std::cout << filteredData[ii] ;
+		}
+		std::cout << std::endl;
+		*/
 		
 		// Recast the vector to the type needed for FFTW and compute FFT
-		in = reinterpret_cast<fftw_complex*>(&filteredData);
-		void fftw_execute(const fftw_plan plan);
+		in = reinterpret_cast<fftw_complex*>(&filteredData[0]);
 		
-		//std::cout << "Pulse " << i << " FFT Executed" << std::endl;
-		//std::vector<phdata> outData;
 		
-		// std::memcpy(&outData, &out, filteredData.size() );
+		for (int ii=0; ii<filteredData.size(); ii++)
+		{
+			std::cout << "(" << (in[ii])[0] << "," << (in[ii])[1] << ");";
+		}
+		std::cout << std::endl;
 		
-		// std::vector<phdata> * outDataPtr = &outData;
+		
+		std::cout << "Pulse " << i << " Data Prepared for FFT." << std::endl;
+		
+		fftw_execute(plan);
+		
+		std::cout << "Pulse " << i << " FFT Executed" << std::endl;
+		
+		std::memcpy(&outData, &out, sizeof(filteredData) );
 		
 		// Shift the output to put zero range at middle of range profile
-		// fftshift(outDataPtr, outData.size());
-		std::cout << out << std::endl;
+		fftshift(outData, outData.size());
+		
+		
+		for (int ii=0; ii<filteredData.size(); ii++)
+		{
+			std::cout << "(" << (out[ii])[0] << "," << (out[ii])[1] << ");";
+			//std::cout << outData[ii];
+		}
+		std::cout << std::endl;
+		
 		
 		// Calculate differential range for each pixel in the image
+		// for x, for y, for z...
 		
-		// Interpolation step next...
+		double diffRange[xdim][ydim][zdim];
+		int cnt=0;
 		
+		for (size_t ii=0; ii != xdim; ii++)
+		{
+			for (size_t jj=0; jj != ydim; jj++)
+			{
+				for (size_t kk=0; kk != zdim; kk++)
+				{
+					diffRange[ii][jj][kk] = dR(tx.az[i], tx.grazing, 
+						       rx.az[i], rx.grazing,
+						       image.x[ii], image.y[jj],
+						       image.z[kk]);
+					// std::cout << diffRange[ii][jj][kk] << ", ";
+					// if diffRange[ii][jj][kk] < image.r_vec[0] (extrapolate)
+					// elseif diffRange[ii][jj][kk] <= image.r_vec.back() (interpolate)
+					// Do i need to check for which direction the interpolation/extrapolation goes?
+					// Case where rvec has finer spacing or case where image pixels have finer spacing...
+					phaseCorr = std::exp((-I)*twoPI*(fcenter/c)*diffRange[ii][jj][kk]);
+					if ( (diffRange[ii][jj][kk] >= rvecMin) && (diffRange[ii][jj][kk] <= rvecMax) )
+					{
+						// interpolate image value here
+						// linear interpolation is used for now...
+						// take indices of "out" near current diffRange and interpolate a value
+						// find out which value of "out" are near current diffRange...
+						while ( image.r_vec[cnt] < diffRange[ii][jj][kk] )
+						{
+							cnt++;
+						}
+						// Lagrange approximation of degree <=1
+						interp = outData[cnt]*((diffRange[ii][jj][kk]-image.r_vec[cnt+1])/(image.r_vec[cnt]-image.r_vec[cnt+1])) + outData[cnt+1]*((diffRange[ii][jj][kk]-image.r_vec[cnt])/(image.r_vec[cnt+1]-image.r_vec[cnt]));
+						//interp = out[cnt]*((diffRange[ii][jj][kk]-image.r_vec[cnt+1])/(image.r_vec[cnt]-image.r_vec[cnt+1])) + out[cnt+1]*((diffRange[ii][jj][kk]-image.r_vec[cnt])/(image.r_vec[cnt+1]-image.r_vec[cnt]));
+						image.img_final[ii][jj][kk] = image.img_final[ii][jj][kk] + interp;
+					}
+				}
+				
+			}
+			//std::cout << std::endl;
+		}		
 	}
 	
+	//fftw_cleanup();
 	fftw_destroy_plan(plan);
 	//fftw_free(in);
 	//fftw_free(out);
@@ -254,9 +379,13 @@ int main()
 		{
 			for (int j = 0; j < image.Ny; j++)
 			{
-				imgfile << image.img_final[0+i][0+j] << ";";
+				for (int k=0; k<image.Nz; k++)
+				{
+					imgfile << image.img_final[i][j][k] << ";";
+				}
+				imgfile << std::endl;
 			}
-			imgfile << std::endl;
+			imgfile << ":";
 		}
 	}
 	else std::cout << "Unable to open file";
