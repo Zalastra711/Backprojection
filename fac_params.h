@@ -7,7 +7,7 @@
  *
  */
 #include <complex>
-// using std::complex;
+#include <cmath>
 
 #ifndef PHDATA
 #define PHDATA
@@ -16,7 +16,8 @@ typedef std::complex<double> phdata;
 
 #ifndef DCOMPLEX_H_
 #define DCOMPLEX_H_
-const phdata I = (0.0,1.0); // sqrt(-1)
+//#define J phdata(0.0,1.0)
+const phdata J(0.0,1.0); // sqrt(-1)
 #endif
 
 #ifndef TWOPI
@@ -26,26 +27,23 @@ const double twoPI = 2*M_PI;
 
 #ifndef SOL
 #define SOL
-const double c = 299792458; // Speed of light in vacuum
+const double C = 299792458.0; // Speed of light in vacuum
 #endif
 
 #ifndef RXDATA
 #define RXDATA
 #include <iostream>
-#include <cmath>
 #include <vector>
-// using std::vector;
-//#include <Array>
 
 // Define receive and transmit data structures
 class rxdata{
 public:
 	double minaz;
 	double maxaz;
-	double azstep;
-	double freqmin;
-	double freqmax;
-	double freqbins;
+	int azpos;
+	double cFreq;
+	double bWidth;
+	int freqbins;
 	double grazing; //Degrees
 	double range;
 	std::vector<double> x;
@@ -64,19 +62,24 @@ public:
 			std::cout << az[i] << ", ";
 		}
 		std::cout << std::endl;
+		
+		std::cout << az.size() << std::endl;
 	}
+
 };
 
 rxdata::rxdata(){
-	minaz = -5*M_PI/180;
-	maxaz = 5*M_PI/180;
-	azstep = 1*M_PI/180;
-	freqmin = 9 * pow(10,9);
-	freqmax = 11 * pow(10,9);
-	freqbins = 64;
-	grazing = 30;
+	//minaz = -15*M_PI/180;
+	//maxaz = 15*M_PI/180;
+	//azstep = 0.01*M_PI/180;
+	//freqmin = 9 * pow(10,9);
+	//freqmax = 11 * pow(10,9);
+	//freqbins = 1024;
+	//grazing = 30*M_PI/180;
 	range = 100;
-	rxphase.assign(freqbins, std::vector<phdata> (3001, {1,0}) );
+	//rxphase.assign(freqbins, std::vector<phdata> (3001, {1,0}) );
+	az.clear();
+	freq.clear();
 }
 
 #endif
@@ -102,65 +105,89 @@ public:
 	std::vector<double> z;
 	std::vector<double> r_vec;
 	std::vector<phdata> rangeprofile;
-	//double x_mat[128][128];
-	//double y_mat[128][128];
-	//double z_mat[128][128];
-	phdata img_final[128][128][1];
+	std::vector<std::vector<phdata> > img_final;
 	
 	imgdata();
+	
+	void makeX()
+	{
+		for (int i = 0; i<Nx; i++)
+		{
+			x.push_back(x0+(-x_extent/2+i*(x_extent/(Nx-1))));
+		}
+	}
+	
+	void printX()
+	{
+		std::vector<double>::iterator xit;
+		for ( xit = x.begin(); xit != x.end(); xit++)
+		{
+			std::cout << *xit << ", ";
+		}
+		std::cout << std::endl;
+	}
+	
+	void printY()
+	{
+		std::vector<double>::iterator yit;
+		for ( yit = y.begin(); yit != y.end(); yit++)
+		{
+			std::cout << *yit << ", ";
+		}
+		std::cout << std::endl;
+	}
+	
+	void makeY()
+	{
+		for (int i = 0; i<Ny; i++)
+		{
+			y.push_back(y0+(-y_extent/2+i*(y_extent/(Ny-1))));
+		}
+	}
+	
+	void makeZ()
+	{
+		if (z_extent)
+		{
+			for (int i = 0; i<Nz; i++)
+			{
+				z.push_back(z0+(-z_extent/2+i*(z_extent/(Nz-1))));
+			}
+		}
+		else 
+		{
+			z.push_back(0);
+		} 
+	}
 };
 
 imgdata::imgdata(){
 	x0 = 0;
 	y0 = 0;
 	z0 = 0;
-	x_extent = 10;
-	y_extent = 10;
-	z_extent = 1;
-	Nfft = pow(2,8);
-	Nx = 128;
-	Ny = 128;
+	x_extent = 20;
+	y_extent = 20;
+	z_extent = 0;
+	Nfft = pow(2,14); //16,384
+	Nx = 256;
+	Ny = 256;
 	Nz = 1;
-	for (int i = 0; i<Nx; i++)
-	{
-		x.push_back(-x_extent/2+i*((x_extent/Nx)));
-	}
-	for (int i = 0; i<Ny; i++)
-	{
-		y.push_back(-y_extent/2+i*((y_extent/Ny)));
-	}
-	if (z_extent)
-	{
-		for (int i = 0; i<Nz; i++)
-		{
-			z.push_back(-z_extent/2+i*((z_extent/Nz)));
-		}
-	}
+
+
 }
 #endif
 
 #ifndef BACKPROJECT
 #define BACKPROJECT
 
-#include <cmath>
-#include <complex>
 #include <fftw3.h>
 
-void backproject(rxdata& rx, rxdata& tx, imgdata& image);//{/*...*/};
-
-#endif
-
-#ifndef SWAP
-#define SWAP
-
-void swap(std::complex<double> *var1, std::complex<double> *var2);//{/*...*/};
+void backproject(rxdata &rx, rxdata& tx, imgdata &image);//{/*...*/};
 
 #endif
 
 #ifndef FFTSHIFT
 #define FFTSHIFT
-
-#include <cmath>
 
 void fftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 
@@ -168,8 +195,6 @@ void fftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 
 #ifndef IFFTSHIFT
 #define IFFTSHIFT
-
-#include <cmath>
 
 void ifftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 
@@ -180,5 +205,19 @@ void ifftshift(std::vector<phdata> *argin, std::size_t count);//{/*...*/};
 
 double dR(double txazim, double txgraz, double rxazim, double rxgraz,
 	  double x, double y, double z); //{/*...*/};
+
+#endif
+
+#ifndef RANGE_VEC
+#define RANGE_VEC
+
+void rvec_Create(rxdata& rx, imgdata& image); //{/*...*/};
+
+#endif
+
+#ifndef FACTORIZE
+#define FACTORIZE
+
+void factorize(rxdata& rx, rxdata& tx, imgdata& image, int numSteps, int currStep); //{/*...*/};
 
 #endif
